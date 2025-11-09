@@ -1,67 +1,46 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Package, Settings2, Edit, ArrowLeftRight } from "lucide-react";
-import { applyMultiKeywordSearch } from "@/lib/search-utils";
+import { Package, Settings2, Edit, ArrowLeftRight, ShieldAlert } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ProductStats } from "@/components/products/ProductStats";
 import { ProductList } from "@/components/products/ProductList";
 import { CreateProductDialog } from "@/components/products/CreateProductDialog";
-import { ImportProductsDialog } from "@/components/products/ImportProductsDialog";
 import { SupplierStats } from "@/components/products/SupplierStats";
 import { AttributeManagementDialog } from "@/components/products/AttributeManagementDialog";
 import { FetchTPOSProductDialog } from "@/components/products/FetchTPOSProductDialog";
 import { SearchProductForTransferDialog } from "@/components/products/SearchProductForTransferDialog";
 import { QuantityTransferDialog } from "@/components/products/QuantityTransferDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useDebounce } from "@/hooks/use-debounce";
 import { useIsAdmin } from "@/hooks/use-user-role";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
-import { ShieldAlert } from "lucide-react";
 import type { TPOSProductFullDetails } from "@/lib/tpos-api";
 
 export default function Products() {
   const isMobile = useIsMobile();
   const { isAdmin, isLoading: isLoadingRole } = useIsAdmin();
   const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState("");
-  const debouncedSearch = useDebounce(searchQuery, 300);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isAttributeDialogOpen, setIsAttributeDialogOpen] = useState(false);
   const [isFetchTPOSDialogOpen, setIsFetchTPOSDialogOpen] = useState(false);
   const [isSearchTransferOpen, setIsSearchTransferOpen] = useState(false);
   const [isQuantityTransferOpen, setIsQuantityTransferOpen] = useState(false);
   const [selectedProductForTransfer, setSelectedProductForTransfer] = useState<TPOSProductFullDetails | null>(null);
-  const [supplierFilter, setSupplierFilter] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("products");
   const [productTypeFilter, setProductTypeFilter] = useState<"parent" | "variant" | "all">("parent");
 
-  // Query for displayed products (search results or 50 latest)
+  // Query for displayed products (50 latest)
   const { data: productsRaw = [], isLoading, refetch } = useQuery({
-    queryKey: ["products-search", debouncedSearch],
+    queryKey: ["products-list"],
     queryFn: async () => {
-      let query = supabase
+      const query = supabase
         .from("products")
         .select("*")
-        .order("created_at", { ascending: false });
-      
-      // If search query exists (>= 2 chars), search in database
-      if (debouncedSearch.length >= 2) {
-        query = applyMultiKeywordSearch(
-          query,
-          debouncedSearch,
-          ['product_name', 'product_code', 'barcode']
-        );
-      } else {
-        // Otherwise, load 50 latest products
-        query = query.range(0, 49);
-      }
-      
+        .order("created_at", { ascending: false })
+        .range(0, 49);
+
       const { data, error } = await query;
       if (error) throw error;
       return data;
@@ -114,9 +93,7 @@ export default function Products() {
 
 
   const handleSupplierClick = (supplierName: string) => {
-    setSupplierFilter(supplierName);
     setActiveTab("products");
-    setSearchQuery(supplierName);
   };
 
   const handleProductSelectedForTransfer = (productDetails: TPOSProductFullDetails) => {
@@ -166,35 +143,9 @@ export default function Products() {
           </TabsList>
 
           <TabsContent value="products" className="space-y-4 mt-0">
-            {/* Search & Actions */}
+            {/* Actions */}
             <Card className="p-4 space-y-3">
               <div className={`flex ${isMobile ? "flex-col" : "flex-row items-center"} gap-4`}>
-                <div className="flex-1 space-y-2 w-full">
-                  <Input
-                    placeholder="Tìm kiếm theo mã SP, tên, mã vạch (tối thiểu 2 ký tự)..."
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setSupplierFilter(null);
-                    }}
-                    className="w-full"
-                  />
-                  {supplierFilter && (
-                    <Badge variant="secondary" className="gap-2">
-                      Đang lọc theo: {supplierFilter}
-                      <button
-                        onClick={() => {
-                          setSupplierFilter(null);
-                          setSearchQuery("");
-                        }}
-                        className="ml-1 hover:bg-muted rounded-full p-0.5"
-                      >
-                        ×
-                      </button>
-                    </Badge>
-                  )}
-                </div>
-
                 <Button
                   onClick={() => setIsSearchTransferOpen(true)}
                   variant="outline"
@@ -224,24 +175,10 @@ export default function Products() {
                   <Settings2 className="h-4 w-4" />
                   Thuộc tính
                 </Button>
-
-                {isAdmin && (
-                  <Button
-                    onClick={() => setIsImportDialogOpen(true)}
-                    variant="outline"
-                    size={isMobile ? "sm" : "default"}
-                    className={isMobile ? "text-xs" : ""}
-                  >
-                    Import Excel
-                  </Button>
-                )}
               </div>
-              
+
               <div className="text-sm text-muted-foreground">
-                {debouncedSearch.length >= 2 
-                  ? `Tìm thấy ${products.length} sản phẩm`
-                  : `Hiển thị ${products.length} sản phẩm mới nhất (Tổng ${totalCount})`
-                }
+                Hiển thị {products.length} sản phẩm mới nhất (Tổng {totalCount})
               </div>
             </Card>
 
@@ -261,9 +198,9 @@ export default function Products() {
               products={products}
               isLoading={isLoading}
               onRefetch={refetch}
-              supplierFilter={supplierFilter}
+              supplierFilter={null}
               isAdmin={isAdmin}
-              searchQuery={debouncedSearch}
+              searchQuery=""
             />
           </TabsContent>
 
@@ -276,12 +213,6 @@ export default function Products() {
         <CreateProductDialog
           open={isCreateDialogOpen}
           onOpenChange={setIsCreateDialogOpen}
-          onSuccess={refetch}
-        />
-        
-        <ImportProductsDialog
-          open={isImportDialogOpen}
-          onOpenChange={setIsImportDialogOpen}
           onSuccess={refetch}
         />
 
