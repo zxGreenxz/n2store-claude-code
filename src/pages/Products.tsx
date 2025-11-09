@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Package, Settings2, Edit, ArrowLeftRight, ShieldAlert } from "lucide-react";
+import { Package, Settings2, Edit, ArrowLeftRight, ShieldAlert, Download } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProductStats } from "@/components/products/ProductStats";
 import { ProductList } from "@/components/products/ProductList";
 import { CreateProductDialog } from "@/components/products/CreateProductDialog";
+import { ExportProductsDialog } from "@/components/products/ExportProductsDialog";
 import { SupplierStats } from "@/components/products/SupplierStats";
 import { AttributeManagementDialog } from "@/components/products/AttributeManagementDialog";
 import { FetchTPOSProductDialog } from "@/components/products/FetchTPOSProductDialog";
@@ -23,6 +24,7 @@ export default function Products() {
   const { isAdmin, isLoading: isLoadingRole } = useIsAdmin();
   const queryClient = useQueryClient();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isAttributeDialogOpen, setIsAttributeDialogOpen] = useState(false);
   const [isFetchTPOSDialogOpen, setIsFetchTPOSDialogOpen] = useState(false);
   const [isSearchTransferOpen, setIsSearchTransferOpen] = useState(false);
@@ -175,6 +177,16 @@ export default function Products() {
                   <Settings2 className="h-4 w-4" />
                   Thuộc tính
                 </Button>
+
+                <Button
+                  onClick={() => setIsExportDialogOpen(true)}
+                  variant="default"
+                  size={isMobile ? "sm" : "default"}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export Excel
+                </Button>
               </div>
 
               <div className="text-sm text-muted-foreground">
@@ -214,6 +226,12 @@ export default function Products() {
           open={isCreateDialogOpen}
           onOpenChange={setIsCreateDialogOpen}
           onSuccess={refetch}
+        />
+
+        <ExportProductsDialog
+          open={isExportDialogOpen}
+          onOpenChange={setIsExportDialogOpen}
+          currentProducts={products}
         />
 
         <AttributeManagementDialog
